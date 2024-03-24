@@ -8,37 +8,33 @@
 
 #include "pico/stdlib.h"
 #include <stdio.h>
+#include "hardware/adc.h"
 
-struct led_task_arg {
-    int gpio;
-    int delay;
-};
+#include <math.h>
+#include <stdlib.h>
 
-void led_task(void *p) {
-    struct led_task_arg *a = (struct led_task_arg *)p;
+QueueHandle_t xQueueAdc;
 
-    gpio_init(a->gpio);
-    gpio_set_dir(a->gpio, GPIO_OUT);
-    while (true) {
-        gpio_put(a->gpio, 1);
-        vTaskDelay(pdMS_TO_TICKS(a->delay));
-        gpio_put(a->gpio, 0);
-        vTaskDelay(pdMS_TO_TICKS(a->delay));
+typedef struct adc {
+    int axis;
+    int val;
+} adc_t;
+
+
+void uart_task(void *p) {
+    adc_t data;
+
+    while (1) {
+        xQueueReceive(xQueueAdc, &data, portMAX_DELAY);
     }
 }
 
 int main() {
     stdio_init_all();
-    printf("Start LED blink\n");
 
-    struct led_task_arg arg1 = {20, 100};
-    xTaskCreate(led_task, "LED_Task 1", 256, &arg1, 1, NULL);
+    xQueueAdc = xQueueCreate(32, sizeof(adc_t));
 
-    struct led_task_arg arg2 = {21, 200};
-    xTaskCreate(led_task, "LED_Task 2", 256, &arg2, 1, NULL);
-
-    struct led_task_arg arg3 = {22, 300};
-    xTaskCreate(led_task, "LED_Task 3", 256, &arg3, 1, NULL);
+    xTaskCreate(uart_task, "uart_task", 4096, NULL, 1, NULL);
 
     vTaskStartScheduler();
 
